@@ -14,6 +14,10 @@ class Settings:
     max_capacity: int = 16        # max images queued OR in-flight
     batch_size: int = 4           # max images per inference batch
     batch_wait_ms: int = 50       # idle model waits at most this long to fill a batch
+    # Fault-frame localization: bounded per-frame retries on the original
+    # compute channel after a batch inference failure. 0 disables retries
+    # (a failed batch fails all its frames at once, the legacy behavior).
+    retry_attempts: int = 1
     # Demo knob: artificial delay inside the inference worker to simulate a slow model.
     inference_delay_ms: int = 0
     model_path: str = _DEFAULT_MODEL_PATH
@@ -24,6 +28,7 @@ class Settings:
             max_capacity=int(os.getenv("MAX_CAPACITY", "16")),
             batch_size=int(os.getenv("BATCH_SIZE", "4")),
             batch_wait_ms=int(os.getenv("BATCH_WAIT_MS", "50")),
+            retry_attempts=int(os.getenv("RETRY_ATTEMPTS", "1")),
             inference_delay_ms=int(os.getenv("INFERENCE_DELAY_MS", "0")),
             model_path=os.getenv("MODEL_PATH", _DEFAULT_MODEL_PATH),
         )

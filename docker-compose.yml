@@ -9,7 +9,34 @@ services:
       MAX_CAPACITY: "16"      # max images queued or computing
       BATCH_SIZE: "4"         # max images per batch
       BATCH_WAIT_MS: "50"     # idle model waits at most 50 ms to fill a batch
+      # Fault-frame localization: bounded per-frame retries on the original
+      # compute channel after a batch inference failure ("0" disables).
+      RETRY_ATTEMPTS: "1"
       # Demo knob: simulate slow inference (ms). Submit/query/cancel stay
       # responsive regardless. Set e.g. "2000" to see the effect.
       INFERENCE_DELAY_MS: "0"
+      # Demo knob: switch to the anomaly model (raises on overexposed frames
+      # such as samples/sample_overexposed.png) to see fault-frame
+      # localization isolate the poison frame from its batch mates:
+      #   MODEL_PATH: "/srv/app/model_anomaly.pt"
+    restart: unless-stopped
+
+  # Anomaly demo on port 8001: same image, anomaly model preselected.
+  #   docker compose --profile anomaly up --build
+  # Then POST samples/sample_overexposed.png together with normal samples to
+  # http://localhost:8001/predict and watch /orders/{id}: the overexposed
+  # frame ends `failed`, its batch mates `completed`. Docs: localhost:8001/docs
+  classifier-anomaly:
+    build: .
+    image: microbatch-classifier:latest
+    profiles: ["anomaly"]
+    ports:
+      - "8001:8000"
+    environment:
+      MAX_CAPACITY: "16"
+      BATCH_SIZE: "4"
+      BATCH_WAIT_MS: "50"
+      RETRY_ATTEMPTS: "1"
+      INFERENCE_DELAY_MS: "0"
+      MODEL_PATH: "/srv/app/model_anomaly.pt"
     restart: unless-stopped

@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from .config import Settings
-from .engine import COMPLETED, BatchEngine, Order
+from .engine import COMPLETED, FAILED, BatchEngine, Order
 from .preprocessing import preprocess
 
 
@@ -29,7 +29,9 @@ def order_view(o: Order) -> dict:
         "deadline_ms": o.deadline_ms,
         "remaining_ms": remaining_ms,
         "batch_id": o.batch_id,
+        "attempts": o.attempts,
         "result": o.result if o.state == COMPLETED else None,
+        "error": o.error if o.state == FAILED else None,
     }
 
 
@@ -41,22 +43,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         batch_size=settings.batch_size,
         batch_wait_ms=settings.batch_wait_ms,
         inference_delay_ms=settings.inference_delay_ms,
+        retry_attempts=settings.retry_attempts,
     )
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app_: FastAPI):
         await engine.start()
         yield
         await engine.stop()
 
     app = FastAPI(
         title="Micro-batch Image Classifier",
-        version="1.0.0",
+        version="1.1.0",
         description=(
             "Time-limited image classification for multiple cameras. "
             "Single-process micro-batching: at most 16 queued/in-flight images, "
             "batches of up to 4, idle model waits up to 50 ms to fill a batch, "
-            "one batch infers at a time. Cancelled/expired orders never yield results."
+            "one batch infers at a time. Cancelled/expired orders never yield results. "
+            "Fault-frame localization: when a batch inference raises, each "
+            "still-eligible frame is retried individually (bounded, on the same "
+            "compute channel); frames that fail alone are marked `failed` while "
+            "the rest of the batch completes normally."
         ),
         lifespan=lifespan,
     )

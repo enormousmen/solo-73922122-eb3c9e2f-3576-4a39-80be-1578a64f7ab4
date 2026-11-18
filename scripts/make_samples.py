@@ -1,5 +1,8 @@
 """Generate deterministic sample images for manual testing of the API.
 
+Includes one "overexposed" frame used to demo fault-frame localization
+with the anomaly model variant (see scripts/make_model.py --variant anomaly).
+
 Usage: python scripts/make_samples.py [--out samples]
 """
 from __future__ import annotations
@@ -43,6 +46,11 @@ def make_images() -> dict[str, np.ndarray]:
 
     # 4. seeded noise
     images["sample_noise.png"] = rng.integers(0, 256, (SIZE, SIZE, 3)).astype(float)
+
+    # 5. overexposed frame (nearly saturated): normalized mean ~0.96 > 0.8,
+    #    trips the anomaly demo model (app/model_anomaly.pt) like a faulty
+    #    camera frame that breaks TorchScript batch inference.
+    images["sample_overexposed.png"] = np.full((SIZE, SIZE, 3), 252.0)
 
     return images
 
